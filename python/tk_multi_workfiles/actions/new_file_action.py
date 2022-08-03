@@ -11,6 +11,7 @@
 """
 Action to create a new file.
 """
+from traceback import format_exc
 
 from sgtk import TankError
 from sgtk.platform.qt import QtGui
@@ -120,6 +121,7 @@ class NewFileAction(Action):
                     FileAction.change_context(self._environment.context)
 
         except Exception as e:
+            e=format_exc()
             error_title = "Failed to complete '%s' action" % self.label
             QtGui.QMessageBox.information(
                 parent_ui, error_title, "%s:\n\n%s" % (error_title, e)

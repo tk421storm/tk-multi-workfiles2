@@ -281,8 +281,12 @@ class FileFormBase(QtGui.QWidget):
         :returns:   A FileModel instance that represents all the files found for a set of entities
                     and users.
         """
+        app = sgtk.platform.current_bundle()
+        #app.log_debug('FileFormBase _build_file_model called')
         file_model = FileModel(self._bg_task_manager, parent=self)
         monitor_qobject_lifetime(file_model, "File Model")
+        
+        #app.log_debug('FileFormBase _build_file_model created'+str(file_model))
         return file_model
 
     def _on_create_new_task(self, entity, step):
@@ -304,9 +308,9 @@ class FileFormBase(QtGui.QWidget):
         :param checked:    True if the refresh action is checked - ignored
         """
         app = sgtk.platform.current_bundle()
-        app.log_debug("Synchronizing remote path cache...")
+        #app.log_debug("Synchronizing remote path cache...")
         app.sgtk.synchronize_filesystem_structure()
-        app.log_debug("Path cache up to date!")
+        #app.log_debug("Path cache up to date!")
         self._refresh_all_async()
 
     def _on_browser_work_area_changed(self, entity, breadcrumbs):
@@ -369,12 +373,15 @@ class FileFormBase(QtGui.QWidget):
         """
         Asynchrounously refresh all models.
         """
+        app = sgtk.platform.current_bundle()
+        #app.log_debug("_refresh_all_async called...")
         if self._my_tasks_model:
             self._my_tasks_model.async_refresh()
         for _, _, entity_model in self._entity_models:
             entity_model.async_refresh()
         if self._file_model:
             self._file_model.async_refresh()
+        #app.log_debug("_refresh_all_async complete.")
 
     def _get_current_file(self):
         """

@@ -28,7 +28,7 @@ class FileAction(Action):
         Create folders for specified context
         """
         app = sgtk.platform.current_bundle()
-        app.log_debug("Creating folders for context %s" % ctx)
+        #app.log_debug("Creating folders for context %s" % ctx)
 
         # create folders:
         QtGui.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
@@ -142,7 +142,7 @@ class FileAction(Action):
         :param sgtk.Context ctx: Context to restore.
         """
         app = sgtk.platform.current_bundle()
-        app.log_debug("Restoring context.")
+        #app.log_debug("Restoring context.")
         try:
             FileAction.change_context(ctx)
         except Exception as e:

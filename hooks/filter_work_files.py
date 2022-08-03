@@ -55,5 +55,6 @@ class FilterWorkFiles(HookClass):
         """
         app = self.parent
 
+        app.log_debug("FilterWorkFiles recieved "+str(work_files)+", returning un-altered")
         # the default implementation just returns the unfiltered list:
         return work_files

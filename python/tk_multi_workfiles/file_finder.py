@@ -139,6 +139,8 @@ class FileFinder(QtCore.QObject):
         """
         QtCore.QObject.__init__(self, parent)
         self._app = sgtk.platform.current_bundle()
+        
+        #self._app.log_debug("FileFinder() created with parent "+str(parent))
 
     ################################################################################################
 
@@ -157,6 +159,10 @@ class FileFinder(QtCore.QObject):
         :returns:                   A list of FileItem instances, one for each unique version of a file found in either
                                     the work or publish areas
         """
+        
+        app = sgtk.platform.current_bundle()
+        #app.log_debug("find_files called for "+str(work_template)+", "+str(context))
+        
         # can't find anything without a work template!
         if not work_template:
             return []
@@ -191,6 +197,7 @@ class FileFinder(QtCore.QObject):
         )
 
         # turn these into FileItem instances:
+        #app.log_debug("find_files turning "+str(filtered_work_files)+" into FileItems")
         name_map = FileFinder._FileNameMap()
         work_file_item_details = self._process_work_files(
             filtered_work_files,
@@ -206,7 +213,9 @@ class FileFinder(QtCore.QObject):
                 for k, kwargs in six.iteritems(work_file_item_details)
             ]
         )
-
+        #app.log_debug("find_files created work_file_items: "+str(work_file_items))
+        
+        #app.log_debug("find_files turning "+str(filtered_published_files)+" into FileItems")
         publish_item_details = self._process_publish_files(
             filtered_published_files,
             publish_template,
@@ -222,6 +231,7 @@ class FileFinder(QtCore.QObject):
                 for k, kwargs in six.iteritems(publish_item_details)
             ]
         )
+        #app.log_debug("find_files created publish_items: "+str(publish_items))
 
         # and aggregate the results:
         file_items = list(work_file_items.values())
@@ -234,6 +244,7 @@ class FileFinder(QtCore.QObject):
             # merge with work file:
             work_file.update_from_publish(publish)
 
+        #app.log_debug("find_files returns with: "+str(file_items))
         return file_items
 
     def _process_work_files(
@@ -258,6 +269,8 @@ class FileFinder(QtCore.QObject):
                   and values are dictionaries which can be used to instantiate
                   :class:`FileItem`.
         """
+        app = sgtk.platform.current_bundle()
+        #app.log_debug("_process_work_files called")
         files = {}
 
         for work_file in work_files:
@@ -335,7 +348,7 @@ class FileFinder(QtCore.QObject):
                 "work_path": work_path,
                 "work_details": file_details,
             }
-
+        #app.log_debug("_process_work_files complete")
         return files
 
     def _process_publish_files(
@@ -350,6 +363,9 @@ class FileFinder(QtCore.QObject):
     ):
         """
         """
+        app = sgtk.platform.current_bundle()
+        #app.log_debug("_process_publish_files called")
+        
         files = {}
 
         # and add in publish details:
@@ -436,6 +452,7 @@ class FileFinder(QtCore.QObject):
                 "publish_path": publish_path,
                 "publish_details": file_details,
             }
+        #app.log_debug("_process_publish_files complete")
         return files
 
     def _find_publishes(self, publish_filters):
@@ -465,6 +482,8 @@ class FileFinder(QtCore.QObject):
     def _filter_publishes(self, sg_publishes, publish_template, valid_file_extensions):
         """
         """
+        app = sgtk.platform.current_bundle()
+        #app.log_debug("_filter_publishes called with "+str(sg_publishes))
         # build list of publishes to send to the filter_publishes hook:
         hook_publishes = [{"sg_publish": sg_publish} for sg_publish in sg_publishes]
 
@@ -479,6 +498,7 @@ class FileFinder(QtCore.QObject):
             )
             hook_result = []
 
+        #app.log_debug("_filter_publishes hook succesful")
         # split back out publishes:
         published_files = []
         for item in hook_result:
@@ -528,6 +548,7 @@ class FileFinder(QtCore.QObject):
             # append to published files list:
             published_files.append(file_details)
 
+        #app.log_debug('_fitler_publishes complete.')
         return published_files
 
     def _find_work_files(self, context, work_template, version_compare_ignore_fields):
@@ -773,6 +794,9 @@ class AsyncFileFinder(FileFinder):
 
         # begin the search stage 1:
         self._begin_search_stage_1(search)
+        
+        app = sgtk.platform.current_bundle()
+        #app.log_debug("begin_search called for search "+str(search.id)+" for entity "+str(entity)+", users: "+str(users))        
 
         # and return the search id:
         return search.id
@@ -783,18 +807,24 @@ class AsyncFileFinder(FileFinder):
         # start Stage 1 to construct the work area:
         # 1a. Construct a work area for the entity.  The work area contains the context as well as
         # all settings, etc. specific to the work area.
+        
+        app = sgtk.platform.current_bundle()
+        #app.log_debug("_begin_search_stage_1 called for search "+str(search.id))
+        
         search.construct_work_area_task = self._bg_task_manager.add_task(
             self._task_construct_work_area,
             group=search.id,
             task_kwargs={"entity": search.entity},
         )
+        environment=self._task_construct_work_area(search.entity)['environment']
 
         # 1b. Resolve sandbox users for the work area (if there are any)
         search.resolve_work_area_task = self._bg_task_manager.add_task(
             self._task_resolve_sandbox_users,
             group=search.id,
-            upstream_task_ids=[search.construct_work_area_task],
+            task_kwargs={"environment":environment},
         )
+        #app.log_debug("_begin_search_stage_1 complete for search "+str(search.id))
 
     def _begin_search_for_work_files(self, search, work_area):
         """
@@ -903,12 +933,14 @@ class AsyncFileFinder(FileFinder):
 
         Runs in main thread
         """
+        app = sgtk.platform.current_bundle()
         if search_id not in self._searches:
             return
         search = self._searches[search_id]
         work_area = result.get("environment")
 
         if task_id == search.construct_work_area_task:
+            #app.log_debug("succesfully created work area")
             search.construct_work_area_task = None
             self.work_area_found.emit(search_id, work_area)
 
@@ -968,7 +1000,7 @@ class AsyncFileFinder(FileFinder):
 
         app = sgtk.platform.current_bundle()
         app.log_error(msg)
-        app.log_debug(stack_trace)
+        #app.log_debug(stack_trace)
 
         # emit signal:
         self.search_failed.emit(search_id, msg)
@@ -976,6 +1008,9 @@ class AsyncFileFinder(FileFinder):
     def _on_background_search_finished(self, search_id):
         """
         """
+        app = sgtk.platform.current_bundle()
+        #app.log_debug("_on_background_search_finished called for search "+str(search_id))
+        
         if search_id not in self._searches:
             return
         search = self._searches[search_id]
@@ -991,6 +1026,7 @@ class AsyncFileFinder(FileFinder):
                 or not search.publish_model_refreshed
             ):
                 # we still have work outstanding!
+                #app.log_debug("_on_background_search_finished search "+str(search_id)+" is not complete!")
                 return
 
         # ok, looks like the search is actually complete!
@@ -1002,6 +1038,9 @@ class AsyncFileFinder(FileFinder):
     def stop_search(self, search_id):
         """
         """
+        app = sgtk.platform.current_bundle()
+        #app.log_debug("stop_search called for "+str(search_id))
+        
         search = self._searches.get(search_id)
         if not search:
             return
@@ -1011,6 +1050,8 @@ class AsyncFileFinder(FileFinder):
             search.publish_model.clear()
             self._available_publish_models.append(search.publish_model)
         del self._searches[search_id]
+        
+        #app.log_debug("stop_search succesfully stopped "+str(search_id))
 
     def stop_all_searches(self):
         """
@@ -1076,6 +1117,10 @@ class AsyncFileFinder(FileFinder):
     def _task_filter_publishes(self, sg_publishes, environment, **kwargs):
         """
         """
+        app = sgtk.platform.current_bundle()
+        #app.log_debug('_task_filter_publishes called with: ')
+        #app.log_debug(str(sg_publishes))
+        #app.log_debug(str(environment))
         # time.sleep(5)
         filtered_publishes = []
         if (
@@ -1099,6 +1144,7 @@ class AsyncFileFinder(FileFinder):
                 environment.publish_template,
                 environment.valid_file_extensions,
             )
+        #app.log_debug('_task_filter_publishes complete')
         return {"sg_publishes": filtered_publishes}
 
     def _task_process_publish_items(
@@ -1140,11 +1186,16 @@ class AsyncFileFinder(FileFinder):
     def _task_filter_work_files(self, work_files, environment, **kwargs):
         """
         """
+        app = sgtk.platform.current_bundle()
+        #app.log_debug('_task_filter_work_files called with: ')
+        #app.log_debug(str(work_files))
+        #app.log_debug(str(environment))
         filtered_work_files = []
         if work_files:
             filtered_work_files = self._filter_work_files(
                 work_files, environment.valid_file_extensions
             )
+        #app.log_debug('_task_filter_work_files complete.')
         return {"work_files": filtered_work_files}
 
     def _task_process_work_items(self, work_files, environment, name_map, **kwargs):

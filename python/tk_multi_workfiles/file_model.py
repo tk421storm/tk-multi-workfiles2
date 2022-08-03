@@ -354,6 +354,19 @@ class FileModel(QtGui.QStandardItemModel):
         Called to clean-up and shutdown any internal objects when the model has been finished
         with.  Failure to call this may result in instability or unexpected behaviour!
         """
+        row=0
+        column=0
+        
+        while row<self.rowCount():
+        	while column<self.columnCount():
+        		item=self.takeItem(row, column)
+
+        		del(item)
+        		column+=1
+        		
+        	column=0
+        	row+=1
+        
         # clear the model:
         self.clear()
 
@@ -379,6 +392,8 @@ class FileModel(QtGui.QStandardItemModel):
             )
             self._finder.shut_down()
             self._finder = None
+            
+        #QtGui.QStandardItemModel.destroy(self)
 
     def get_cached_file_versions(self, key, work_area, clean_only=False):
         """
@@ -1181,6 +1196,7 @@ class FileModel(QtGui.QStandardItemModel):
             # ignore result
             return
 
+        self._app.log_debug('_process_search_completition called for search '+str(search_id))
         search = self._in_progress_searches[search_id]
         del self._in_progress_searches[search_id]
 

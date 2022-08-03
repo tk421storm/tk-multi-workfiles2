@@ -90,6 +90,7 @@ class WorkFiles(object):
         # If the user wants to debug the dialog, show it modally and wrap it
         # with memory leak-detection code.
         if app.use_debug_dialog:
+            app.log_debug('starting dialog with debug mode')
             self._dialog_launcher = dbg_info(app.engine.show_modal)
         elif use_modal_dialog:
             self._dialog_launcher = app.engine.show_modal

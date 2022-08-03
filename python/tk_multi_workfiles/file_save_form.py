@@ -42,6 +42,8 @@ class FileSaveForm(FileFormBase):
         """
         Construction
         """
+        app = sgtk.platform.current_bundle()
+        #app.log_debug("starting file_save_form __init__")
         super(FileSaveForm, self).__init__(parent)
 
         self._expanded_size = QtCore.QSize(930, 700)
@@ -71,11 +73,17 @@ class FileSaveForm(FileFormBase):
             self._allow_preview_update = True
             # Manually invoke the preview update here so it is only called once due to the
             # _allow_preview_update flag.
-            self._start_preview_update()
+            # this is unneccesary at this stage, callbacks set the preview update fine,
+            # and too many calls to this function can lock the gui
+            #self._start_preview_update("__init__")
         except Exception:
+            e=traceback.format_exc()
             self._allow_preview_update = True
-            app = sgtk.platform.current_bundle()
             app.log_exception("Unhandled exception during File Save Form construction!")
+            app.log_exception(e)
+            
+        app = sgtk.platform.current_bundle()
+        #app.log_debug("file_save_form __init__ complete")
 
     def init_ui_file(self):
         """
@@ -88,7 +96,7 @@ class FileSaveForm(FileFormBase):
         Actual construction!
         """
         app = sgtk.platform.current_bundle()
-
+        #app.log_debug("file_save_form _do_init called")
         super(FileSaveForm, self)._do_init()
 
         self._ui.preview_label.setText(
@@ -165,6 +173,8 @@ class FileSaveForm(FileFormBase):
         if not env or not env.work_template:
             self._ui.expand_checkbox.setChecked(True)
             self._on_expand_toggled(True)
+            
+        #app.log_debug("file_save_form _do_init complete")
 
     # ------------------------------------------------------------------------------------------
     # protected methods
@@ -183,36 +193,38 @@ class FileSaveForm(FileFormBase):
     def _on_name_edited(self, txt):
         """
         """
-        self._start_preview_update()
+        self._start_preview_update("_on_name_edited")
 
     def _on_name_return_pressed(self):
         # self._on_continue()
         pass
 
     def _on_version_value_changed(self, value):
-        self._start_preview_update()
+        self._start_preview_update("_on_version_value_changed")
 
     def _on_extension_current_index_changed(self, value):
-        self._start_preview_update()
+        self._start_preview_update("_on_extension_current_index_changed")
 
     def _on_use_next_available_version_toggled(self, checked):
         """
         """
         self._ui.version_spinner.setEnabled(not checked)
-        self._start_preview_update()
+        self._start_preview_update("_on_use_next_available_version_toggled")
 
-    def _start_preview_update(self):
+    def _start_preview_update(self, source="unknown"):
         """
         Starts the path preview task if we're not initializing the gui. If a preview task is
         currently running, it will be stopped and a new one will be launched.
         """
-
+        app = sgtk.platform.current_bundle()        
+        #app.log_debug("_start_preview_update started from "+source)
         # When initializing the gui, events are fired multiple times due to signals
         # emitted from the widgets. Here we are muting the start_preview_update call
         # to avoid creating and deleting the preview task multiple times, which is not only
         # wasteful but also makes the code harder to debug since 5 tasks end up computing
         # the preview.
         if not self._allow_preview_update:
+            #app.log_debug("_start_preview_update cancelling due to _allow_preview_update False")
             return
 
         # Disable the button while the path is computed.
@@ -222,8 +234,10 @@ class FileSaveForm(FileFormBase):
 
         # stop previous running task:
         if self._preview_task:
+            #app.log_debug("_start_preview_update attempting to stop other task...")
             self._bg_task_manager.stop_task(self._preview_task)
             self._preview_task = None
+            #app.log_debug("success.")
 
         # get the name, version and extension from the UI:
         name = value_to_str(self._ui.name_edit.text())
@@ -251,11 +265,15 @@ class FileSaveForm(FileFormBase):
                 "require_path": False,
             },
         )
+        #app.log_debug("_start_preview_update complete")
 
     def _on_preview_generation_complete(self, task_id, group, result):
         """
         """
+        app = sgtk.platform.current_bundle()  
+        #app.log_debug("_on_preview_generation_complete called for task_id: "+str(task_id))
         if task_id != self._preview_task:
+            #app.log_debug("_on_preview_generation_complete called for task_id: "+str(task_id)+" not our current task, was for "+str(self._bg_task_manager._all_tasks_by_id[task_id]._cbl)+" with "+str(self._bg_task_manager._all_tasks_by_id[task_id]._kwargs))
             return
         self._preview_task = None
 
@@ -274,6 +292,7 @@ class FileSaveForm(FileFormBase):
             path_preview = ""
             self._ui.work_area_label.setVisible(False)
         else:
+            #app.log_debug("on_preview_generation_complete recieved path "+str(path))
             path_preview, name_preview = os.path.split(path)
             self._ui.work_area_label.setVisible(True)
 
@@ -291,6 +310,8 @@ class FileSaveForm(FileFormBase):
         self._update_version_spinner(version, next_version)
 
         self._enable_save()
+        #app.log_debug("_on_preview_generation_complete complete for task_id: "+str(task_id))        
+
 
     def _enable_save(self):
         """
@@ -323,9 +344,13 @@ class FileSaveForm(FileFormBase):
     def _on_preview_generation_failed(self, task_id, group, msg, stack_trace):
         """
         """
+        app = sgtk.platform.current_bundle()  
         if task_id != self._preview_task:
             return
         self._preview_task = None
+        
+        app.log_warning("_on_preview_generation_complete called for task_id: "+str(task_id))
+        app.log_warning(stack_trace)
 
         self._disable_save_and_warn(msg)
 
@@ -337,7 +362,7 @@ class FileSaveForm(FileFormBase):
         :raises:    Error if something goes wrong!
         """
         app = sgtk.platform.current_bundle()
-
+        #app.log_debug("_generate_path called for : "+str(name)+", "+str(version))
         # first make  sure the environment is complete:
         if not env or not env.context:
             raise TankError("Please select a work area to save into.")
@@ -361,6 +386,8 @@ class FileSaveForm(FileFormBase):
         ext_is_used = "extension" in env.work_template.keys
         if ext_is_used and ext != None:
             fields["extension"] = ext
+            
+        #app.log_debug("_generate_path created fields: "+str(fields))
 
         # query the context fields:
         ctx_fields = {}
@@ -370,7 +397,7 @@ class FileSaveForm(FileFormBase):
             )
             fields = dict(chain(fields.items(), ctx_fields.items()))
         except TankError as e:
-            app.log_debug("Unable to generate preview path: %s" % e)
+            #app.log_debug("Unable to generate preview path: %s" % e)
             if require_path:
                 # log the original exception (useful for tracking down the problem)
                 app.log_exception("Unable to resolve template fields!")
@@ -383,10 +410,13 @@ class FileSaveForm(FileFormBase):
 
             # it's ok not to have a path preview at this point!
             return {}
+           
+        #app.log_debug("_generate_path added context fields: "+str(ctx_fields))
 
         next_version = None
         version_is_used = "version" in env.work_template.keys
         if version_is_used:
+            #app.log_debug("_generate_path checking for latest version...")
             # version is used so we need to find the latest version - this means
             # searching for files...
             # need a file key to find all versions so lets build it:
@@ -398,10 +428,12 @@ class FileSaveForm(FileFormBase):
                 file_versions = self._file_model.get_cached_file_versions(
                     file_key, env, clean_only=True
                 )
+                #app.log_debug("_generate_path using file_Versions from _file_model: "+str(file_versions))
             if file_versions == None:
                 # fall back to finding the files manually - this will be slower!
+                #app.log_debug("_generate_path creating FileFinder for versions")
                 try:
-                    finder = FileFinder()
+                    finder = FileFinder(parent=self)
                     files = (
                         finder.find_files(
                             env.work_template,
@@ -411,8 +443,11 @@ class FileSaveForm(FileFormBase):
                         )
                         or []
                     )
+                    #app.log_debug("_generate_path FileFinder.find_files complete")
                 except TankError as e:
                     raise TankError("Failed to find files for this work area: %s" % e)
+                finally:
+                    del(finder)
                 file_versions = [f.version for f in files]
 
             max_version = max(file_versions or [0])
@@ -420,6 +455,7 @@ class FileSaveForm(FileFormBase):
 
             # update version:
             version = next_version if use_next_version else max(version, next_version)
+            #app.log_debug("_generate_path using version: "+str(version))
             fields["version"] = version
         else:
             # version isn't used!
@@ -435,9 +471,10 @@ class FileSaveForm(FileFormBase):
                 raise
 
             # otherwise it's ok to not have a path!
-            app.log_debug("Unable to generate preview path: %s" % e)
+            #app.log_debug("Unable to generate preview path: %s" % e)
             path = None
 
+        #app.log_debug("_generate_path created: "+str(path))
         return {"path": path, "version": version, "next_version": next_version}
 
     def _update_version_spinner(self, version, min_version, block_signals=True):
@@ -481,7 +518,7 @@ class FileSaveForm(FileFormBase):
             self._on_work_area_changed(env)
 
         self._on_selected_file_changed(file)
-        self._start_preview_update()
+        self._start_preview_update("_on_browser_file_selected")
 
     def _on_browser_file_double_clicked(self, file, env):
         """
@@ -497,18 +534,20 @@ class FileSaveForm(FileFormBase):
         """
         # This overrides the base implementation since we need to change the state of the preview
         # when an environment can't be found
+        app = sgtk.platform.current_bundle()
+        
         if entity:
-            app = sgtk.platform.current_bundle()
+            #app.log_debug('_on_browser_work_area_changed for entity '+str(entity))
             context = app.sgtk.context_from_entity_dictionary(entity)
 
             try:
                 env = WorkArea(context)
             except TankError as e:
-                app.log_debug(traceback.format_stack())
+                #app.log_debug(traceback.format_stack())
                 self._disable_save_and_warn(str(e))
             else:
                 self._on_work_area_changed(env)
-                self._start_preview_update()
+                self._start_preview_update("_on_browser_work_area_changed")
 
         if not self._navigating:
             destination_label = breadcrumbs[-1].label if breadcrumbs else "..."
@@ -678,7 +717,7 @@ class FileSaveForm(FileFormBase):
         app = sgtk.platform.current_bundle()
         if not self._current_env:
             return
-
+        #app.log_debug("FileSaveForm _on_save started")
         # generate the path to save to and do any pre-save preparation:
         path_to_save = ""
         try:
@@ -800,3 +839,5 @@ class FileSaveForm(FileFormBase):
             # all good - lets close the dialog
             self._exit_code = QtGui.QDialog.Accepted
             self.close()
+            
+        #app.log_debug("FileSaveForm _on_save completed")
